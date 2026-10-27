@@ -1,435 +1,590 @@
 
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101827">
 <title>Расчёт топливных ведомостей</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#f2f5f9;color:#172033;font-family:Arial,sans-serif}
-header{background:#17365d;color:white;padding:22px 16px}
-header h1{font-size:23px;margin:0 0 8px}
-header p{margin:0;color:#d9e6f5;font-size:14px}
-main{max-width:1100px;margin:auto;padding:16px}
-.card{background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 10px #152b4410}
-h2{font-size:19px;margin:0 0 14px}
-.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
-label{font-size:13px;color:#475569;display:block}
-input,select{width:100%;padding:11px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;background:white;color:#172033}
-.check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px}
-.check input{width:auto;margin:0}
-button{border:0;border-radius:9px;padding:12px 16px;font-size:15px;font-weight:bold;cursor:pointer}
-.primary{background:#1765c0;color:white}
-.secondary{background:#e6edf5;color:#17365d}
-.danger{background:#fee2e2;color:#991b1b}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.hint{font-size:13px;line-height:1.5;color:#64748b}
-.rowitem{border:1px solid #dbe3ed;border-radius:10px;padding:14px;margin:12px 0}
-.rowhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.rowhead strong{font-size:15px}
-.tablewrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
-th,td{padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right}
-th{background:#edf3fa;color:#17365d}
-th:first-child,td:first-child{text-align:left}
-.summary td{background:#eaf2fc;font-weight:bold}
-.notice{padding:12px;background:#fff7df;border-radius:8px;font-size:13px;line-height:1.5}
-.empty{text-align:center;padding:24px;color:#64748b}
-@media(max-width:500px){main{padding:10px}.card{padding:12px}header h1{font-size:21px}}
+:root {
+  color-scheme: dark;
+  --bg: #101827;
+  --panel: #1b2638;
+  --border: #34435a;
+  --text: #f2f5fa;
+  --muted: #a9b6c9;
+  --accent: #4ade80;
+  --danger: #fb7185;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+}
+main {
+  width: min(1100px, 100%);
+  margin: auto;
+  padding: 20px 14px 50px;
+}
+h1 { font-size: 27px; line-height: 1.2; }
+h2 { font-size: 20px; margin-top: 0; }
+p { color: var(--muted); }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin: 16px 0;
+}
+label {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+  margin: 10px 0 5px;
+}
+input, select, textarea, button {
+  font: inherit;
+  border-radius: 9px;
+}
+input, select, textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+input[type="file"] { padding: 10px; }
+input[type="checkbox"] { width: 20px; min-height: 20px; }
+button {
+  padding: 11px 15px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 650;
+  margin: 4px 4px 4px 0;
+}
+.primary { background: var(--accent); color: #102018; }
+.secondary { background: #34435a; color: white; }
+.remove { background: #542b39; color: #ffd8e0; }
+button:disabled { opacity: .5; cursor: wait; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  margin-top: 12px;
+  border-radius: 8px;
+  background: #0b1220;
+}
+.status { color: var(--accent); overflow-wrap: anywhere; }
+.small { font-size: 13px; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 850px;
+  font-size: 14px;
+}
+th, td {
+  padding: 9px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th:first-child, td:first-child,
+th:nth-child(2), td:nth-child(2) { text-align: left; }
+th { color: var(--muted); }
+.total { font-weight: 750; background: #26374b; }
+.operation-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.wide { grid-column: 1 / -1; }
+[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  h1 { font-size: 23px; }
+  .panel { padding: 12px; }
+  .grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
+
 <body>
-<header>
-  <h1>Расчёт топливных ведомостей</h1>
-  <p>Учёт выдачи топлива, расчёт массы и итоги по датам</p>
-</header>
 <main>
-  
-<section class="card">
-  <h2>Загрузка фотографии ведомости</h2>
-  <p class="hint">Выбери фотографию ведомости из галереи телефона.</p>
-  <input
-    id="photoInput"
-    type="file"
-    accept="image/*"
-    onchange="previewPhoto(event)"
-  >
-  <div id="photoPreview" style="margin-top:12px"></div>
-  <button
-    class="secondary"
-    onclick="clearPhoto()"
-    style="margin-top:12px"
-  >Удалить фотографию</button>
-</section>
+  <h1>Расчёт топливных ведомостей</h1>
+  <p>Загрузка фотографии, распознавание текста и расчёт массы топлива.</p>
 
-  <section class="card">
-    <h2>1. Добавить выдачу</h2>
-    <div class="formgrid">
-      <label>Дата
+  <section class="panel">
+    <h2>1. Загрузить фотографию</h2>
+    <label for="photo">Фотография ведомости</label>
+    <input id="photo" type="file" accept="image/*">
+
+    <img id="preview" class="preview" alt="Предпросмотр фотографии" hidden>
+
+    <p class="small">
+      Распознавание выполняется в браузере. Для загрузки библиотеки
+      и языковых данных требуется интернет.
+    </p>
+
+    <button id="recognize" class="primary" disabled>
+      Распознать текст
+    </button>
+    <p id="ocrStatus" class="status" role="status" aria-live="polite"></p>
+
+    <label for="ocrText">Распознанный текст</label>
+    <textarea id="ocrText" rows="8"
+      placeholder="Здесь появится текст с фотографии."></textarea>
+  </section>
+
+  <section class="panel">
+    <h2>2. Плотность топлива</h2>
+    <p>
+      Введи плотность для каждого наименования на конкретную дату.
+      Неизвестную плотность программа не подставляет.
+    </p>
+
+    <div class="grid">
+      <div>
+        <label for="date">Дата ведомости</label>
         <input id="date" type="date">
-      </label>
-      <label>Номер машины
-        <input id="vehicle" placeholder="Например, 123">
-      </label>
-      <label>Наименование
-        <select id="product">
-          <option value="ai">АИ-92</option>
-          <option value="dt">ДТ-3</option>
-          <option value="oil">Масло</option>
-        </select>
-      </label>
-      <label>Литры
-        <input id="liters" type="number" min="0" step="any" placeholder="0">
-      </label>
-      <label>Плотность
-        <input id="density" type="number" min="0" step="any" placeholder="Например, 0.735">
-      </label>
-    </div>
-    <label class="check">
-      <input id="hasKg" type="checkbox">
-      Килограммы уже указаны в ведомости
-    </label>
-    <p class="hint">Если килограммы уже записаны, эта позиция не попадёт в расчётную таблицу.</p>
-    <div class="actions">
-      <button class="primary" onclick="addEntry()">Добавить выдачу</button>
-      <button class="secondary" onclick="clearForm()">Очистить поля</button>
+      </div>
+      <div>
+        <label for="aiDensity">Плотность АИ-92</label>
+        <input id="aiDensity" type="number" min="0" step="any"
+          placeholder="Например, 0.735">
+      </div>
+      <div>
+        <label for="dtDensity">Плотность ДТ-3</label>
+        <input id="dtDensity" type="number" min="0" step="any"
+          placeholder="Например, 0.840">
+      </div>
+      <div>
+        <label for="oilDensity">Плотность масла</label>
+        <input id="oilDensity" type="number" min="0" step="any"
+          placeholder="Введи фактическую плотность">
+      </div>
     </div>
   </section>
 
-  <section class="card">
-    <h2>2. Введённые данные</h2>
-    <div id="entries"><p class="empty">Пока нет записей.</p></div>
-    <div class="actions">
-      <button class="primary" onclick="calculate()">Рассчитать итоги</button>
-      <button class="secondary" onclick="exportCSV()">Скачать таблицу CSV</button>
-      <button class="danger" onclick="clearAll()">Удалить все записи</button>
-      
-<button class="primary" onclick="recognizePhoto()" style="margin-top:12px">
-  Распознать текст
-</button>
-<p id="ocrStatus" class="hint"></p>
-<textarea id="ocrResult" rows="10" placeholder="Здесь появится распознанный текст" style="width:100%;margin-top:10px;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></textarea>
+  <section class="panel">
+    <h2>3. Добавить операцию</h2>
+    <p>
+      Проверь данные по фотографии и внеси каждую выдачу.
+      Если килограммы уже записаны в ведомости, такую операцию
+      в расчёт добавлять не нужно.
+    </p>
 
-    </div>
-    <p class="hint">Данные хранятся в памяти открытой страницы. Скачивай CSV для сохранения результата перед закрытием или обновлением страницы.</p>
+    <form id="operationForm">
+      <div class="operation-form">
+        <div>
+          <label for="opDate">Дата</label>
+          <input id="opDate" type="date" required>
+        </div>
+
+        <div>
+          <label for="vehicle">Номер машины</label>
+          <input id="vehicle" placeholder="Необязательно">
+        </div>
+
+        <div>
+          <label for="product">Наименование</label>
+          <select id="product">
+            <option value="ai">АИ-92</option>
+            <option value="dt">ДТ-3</option>
+            <option value="oil">Масло</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="liters">Литры</label>
+          <input id="liters" type="number" min="0"
+            step="any" required placeholder="Количество">
+        </div>
+
+        <div class="wide">
+          <label>
+            <input id="hasKg" type="checkbox">
+            Килограммы уже указаны в ведомости
+          </label>
+        </div>
+
+        <div class="wide">
+          <button class="primary" type="submit">Добавить операцию</button>
+        </div>
+      </div>
+    </form>
   </section>
 
-  <section class="card">
-    <h2>3. Итоговая таблица</h2>
-    <div class="notice">
-      Масса каждой выдачи рассчитывается как литры × плотность с округлением до 0,1 кг. В строках «Итого за дату» литры и килограммы АИ-92 и ДТ-3 округляются до целых, масло сохраняет один знак после запятой.
+  <section class="panel">
+    <h2>4. Результат расчёта</h2>
+    <p class="small">
+      Масса каждой операции округляется до 0,1 кг.
+      Итоги АИ-92 и ДТ-3 округляются до целого килограмма.
+      Итог масла сохраняет десятые доли.
+    </p>
+
+    <button id="calculate" class="primary">Пересчитать</button>
+    <button id="exportCsv" class="secondary">Скачать CSV</button>
+    <button id="clear" class="remove">Очистить операции</button>
+
+    <p id="calcStatus" class="status" role="status" aria-live="polite"></p>
+
+    <div id="results" class="table-wrap">
+      <p>Добавь операции, чтобы увидеть таблицу.</p>
     </div>
-    <div id="results"><p class="empty">Добавь записи и нажми «Рассчитать итоги».</p></div>
   </section>
 </main>
 
-let selectedPhotoUrl = null;
-
-function previewPhoto(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  if (!file.type.startsWith("image/")) {
-    alert("Выбери файл изображения.");
-    return;
-  }
-
-  if (selectedPhotoUrl) {
-    URL.revokeObjectURL(selectedPhotoUrl);
-  }
-
-  selectedPhotoUrl = URL.createObjectURL(file);
-
-  document.getElementById("photoPreview").innerHTML = "";
-
-  const img = document.createElement("img");
-  img.src = selectedPhotoUrl;
-  img.alt = "Фотография ведомости";
-  img.style.maxWidth = "100%";
-  img.style.maxHeight = "500px";
-  img.style.objectFit = "contain";
-  img.style.borderRadius = "8px";
-
-  document.getElementById("photoPreview").appendChild(img);
-}
-
-function clearPhoto() {
-  if (selectedPhotoUrl) {
-    URL.revokeObjectURL(selectedPhotoUrl);
-    selectedPhotoUrl = null;
-  }
-
-  document.getElementById("photoInput").value = "";
-  document.getElementById("photoPreview").innerHTML = "";
-}
-
-
-
-async function recognizePhoto() {
-  const input = document.getElementById("photoInput");
-  const status = document.getElementById("ocrStatus");
-  const result = document.getElementById("ocrResult");
-  const file = input.files[0];
-
-  if (!file) {
-    alert("Сначала выбери фотографию ведомости.");
-    return;
-  }
-
-  if (typeof Tesseract === "undefined") {
-    status.textContent = "Не удалось загрузить OCR. Проверь интернет и обнови страницу.";
-    return;
-  }
-
-  status.textContent = "Распознаём текст. Это может занять некоторое время...";
-  result.value = "";
-
-  let worker;
-
-  try {
-    worker = await Tesseract.createWorker("rus+eng");
-    const output = await worker.recognize(file);
-    result.value = output.data.text || "";
-    status.textContent = result.value.trim()
-      ? "Готово. Проверь цифры: OCR может ошибаться."
-      : "Текст не распознан. Попробуй более чёткую фотографию.";
-  } catch (error) {
-    status.textContent = "Ошибка распознавания. Попробуй ещё раз при стабильном интернете.";
-  } finally {
-    if (worker) await worker.terminate();
-  }
-  }
-}
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-const products = {
-  ai: {name:"АИ-92", liters:"aiL", kg:"aiK"},
-  dt: {name:"ДТ-3", liters:"dtL", kg:"dtK"},
-  oil: {name:"Масло", liters:"oilL", kg:"oilK"}
-};
-let entries = [];
-let nextId = 1;
-let lastResults = [];
+"use strict";
 
-function round1(n) {
-  return Math.floor(n * 10 + 0.500000001) / 10;
+const $ = id => document.getElementById(id);
+
+const products = {
+  ai:  { name: "АИ-92", density: "aiDensity", decimals: 0 },
+  dt:  { name: "ДТ-3", density: "dtDensity", decimals: 0 },
+  oil: { name: "Масло", density: "oilDensity", decimals: 1 }
+};
+
+let operations = [];
+let nextId = 1;
+let selectedImageUrl = null;
+
+function roundTo(value, digits) {
+  const factor = 10 ** digits;
+  // Корректное десятичное округление без накопления погрешности.
+  return Math.sign(value) *
+    Math.round((Math.abs(value) + Number.EPSILON) * factor) / factor;
 }
-function fmt(n, digits=1) {
-  return Number(n).toLocaleString("ru-RU", {
+
+function numberText(value, digits = 1) {
+  return value.toLocaleString("ru-RU", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
 }
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;",
-    '"':"&quot;", "'":"&#39;"
-  })[c]);
-}
-function clearForm() {
-  document.getElementById("vehicle").value = "";
-  document.getElementById("liters").value = "";
-  document.getElementById("density").value = "";
-  document.getElementById("hasKg").checked = false;
-}
-function addEntry() {
-  const date = document.getElementById("date").value;
-  const vehicle = document.getElementById("vehicle").value.trim();
-  const product = document.getElementById("product").value;
-  const litersText = document.getElementById("liters").value;
-  const densityText = document.getElementById("density").value;
-  const hasKg = document.getElementById("hasKg").checked;
 
-  if (!date) return alert("Укажи дату выдачи.");
-  if (!vehicle) return alert("Укажи номер машины.");
-  if (hasKg) {
-    return alert("Эта позиция уже содержит килограммы. По заданным правилам её не добавляем в расчёт.");
-  }
-  if (litersText === "" || !Number.isFinite(Number(litersText)) || Number(litersText) <= 0) {
-    return alert("Проверь количество литров.");
-  }
-  if (densityText === "" || !Number.isFinite(Number(densityText)) || Number(densityText) <= 0) {
-    return alert("Укажи подтверждённую плотность. Программа не будет угадывать её.");
-  }
+function getDensity(productKey) {
+  const raw = $(products[productKey].density).value.trim();
+  if (!raw) return null;
 
-  entries.push({
-    id: nextId++,
-    date, vehicle, product,
-    liters: Number(litersText),
-    density: Number(densityText)
-  });
-  renderEntries();
-  clearForm();
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
-function removeEntry(id) {
-  entries = entries.filter(e => e.id !== id);
-  renderEntries();
-}
-function renderEntries() {
-  const root = document.getElementById("entries");
-  if (!entries.length) {
-    root.innerHTML = '<p class="empty">Пока нет записей.</p>';
-    return;
-  }
-  root.innerHTML = entries.map((e, i) => `
-    <div class="rowitem">
-      <div class="rowhead">
-        <strong>Позиция ${i + 1}: ${esc(products[e.product].name)}</strong>
-        <button class="danger" onclick="removeEntry(${e.id})">Удалить</button>
-      </div>
-      <div>${esc(e.date)} · Машина: ${esc(e.vehicle)}</div>
-      <div>Литры: ${fmt(e.liters)} · Плотность: ${fmt(e.density, 3)}</div>
-      <div>Расчётная масса: <strong>${fmt(round1(e.liters * e.density))} кг</strong></div>
-    </div>`).join("");
-}
-function calculate() {
-  if (!entries.length) return alert("Сначала добавь хотя бы одну выдачу.");
-  const dates = [...new Set(entries.map(e => e.date))].sort();
-  const output = [];
-  for (const date of dates) {
-    const day = entries.filter(e => e.date === date);
-    const sums = {
-      aiL:0, aiK:0, dtL:0, dtK:0, oilL:0, oilK:0
-    };
-    for (const e of day) {
-      const kg = round1(e.liters * e.density);
-      const p = products[e.product];
-      sums[p.liters] += e.liters;
-      sums[p.kg] += kg;
-      output.push({
-        type:"entry", date, vehicle:e.vehicle,
-        product:e.product, liters:e.liters, kg
-      });
-    }
-    output.push({type:"summary", date, sums});
-  }
-  lastResults = output;
-  renderResults();
-}
-function renderResults() {
-  const root = document.getElementById("results");
-  if (!lastResults.length) {
-    root.innerHTML = '<p class="empty">Нет рассчитанных данных.</p>';
-    return;
-  }
-  let html = `<div class="tablewrap"><table>
-    <thead><tr>
-      <th>Дата / запись</th><th>Машина</th>
-      <th>АИ-92, л</th><th>АИ-92, кг</th>
-      <th>ДТ-3, л</th><th>ДТ-3, кг</th>
-      <th>Масло, л</th><th>Масло, кг</th>
-    </tr></thead><tbody>`;
-  for (const r of lastResults) {
-    if (r.type === "entry") {
-      const vals = {aiL:"",aiK:"",dtL:"",dtK:"",oilL:"",oilK:""};
-      const p = products[r.product];
-      vals[p.liters] = fmt(r.liters);
-      vals[p.kg] = fmt(r.kg);
-      html += `<tr>
-        <td>${esc(r.date)}</td><td>${esc(r.vehicle)}</td>
-        <td>${vals.aiL}</td><td>${vals.aiK}</td>
-        <td>${vals.dtL}</td><td>${vals.dtK}</td>
-        <td>${vals.oilL}</td><td>${vals.oilK}</td>
-      </tr>`;
-    } else {
-      const s = r.sums;
-      html += `<tr class="summary">
-        <td>Итого за дату ${esc(r.date)}</td><td>—</td>
-        <td>${fmt(Math.round(s.aiL),0)}</td><td>${fmt(Math.round(s.aiK),0)}</td>
-        <td>${fmt(Math.round(s.dtL),0)}</td><td>${fmt(Math.round(s.dtK),0)}</td>
-        <td>${fmt(s.oilL)}</td><td>${fmt(round1(s.oilK))}</td>
-      </tr>`;
-    }
-  }
-  html += "</tbody></table></div>";
-  root.innerHTML = html;
-}
-function exportCSV() {
-  if (!lastResults.length) calculate();
-  if (!lastResults.length) return;
-  const rows = [[
-    "Дата","Тип строки","Номер машины",
-    "АИ-92, литры","АИ-92, кг",
-    "ДТ-3, литры","ДТ-3, кг",
-    "Масло, литры","Масло, кг"
-  ]];
-  for (const r of lastResults) {
-    if (r.type === "entry") {
-      const v = ["","","","","","",""];
-      const p = products[r.product];
-      const map = {aiL:0, aiK:1, dtL:2, dtK:3, oilL:4, oilK:5};
-      v[map[p.liters]] = r.liters;
-      v[map[p.kg]] = r.kg;
-      rows.push([r.date,"Выдача",r.vehicle,...v]);
-    } else {
-      const s = r.sums;
-      rows.push([
-        r.date,"Итого за дату","",
-        Math.round(s.aiL),Math.round(s.aiK),
-        Math.round(s.dtL),Math.round(s.dtK),
-        round1(s.oilL),round1(s.oilK)
-      ]);
-    }
-  }
-  const csv = "\uFEFF" + rows.map(row =>
-    row.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(";")
-  ).join("\r\n");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "toplivnaya-vedomost.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-function clearAll() {
-  if (!confirm("Удалить все введённые записи?")) return;
-  entries = [];
-  lastResults = [];
-  renderEntries();
-  document.getElementById("results").innerHTML =
-    '<p class="empty">Добавь записи и нажми «Рассчитать итоги».</p>';
-}
-document.getElementById("date").value =
-  new Date().toLocaleDateString("en-CA");
-  
-async function recognizePhoto() {
-  const input = document.getElementById("photoInput");
-  const status = document.getElementById("ocrStatus");
-  const result = document.getElementById("ocrResult");
-  const file = input.files[0];
 
-  if (!file) {
-    status.textContent = "Сначала выбери фотографию ведомости.";
+function getMass(op) {
+  const density = getDensity(op.product);
+  if (density === null) return null;
+  return roundTo(op.liters * density, 1);
+}
+
+function setToday() {
+  const now = new Date();
+  const localDate = new Date(
+    now.getTime() - now.getTimezoneOffset() * 60000
+  ).toISOString().slice(0, 10);
+
+  $("date").value = localDate;
+  $("opDate").value = localDate;
+}
+
+$("photo").addEventListener("change", event => {
+  const file = event.target.files[0];
+  $("recognize").disabled = !file;
+  $("ocrStatus").textContent = "";
+
+  if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
+  selectedImageUrl = null;
+  $("preview").hidden = true;
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    $("ocrStatus").textContent = "Выбери файл изображения.";
+    $("recognize").disabled = true;
     return;
   }
 
-  if (typeof Tesseract === "undefined") {
-    status.textContent = "Ошибка: библиотека распознавания не загружена.";
+  selectedImageUrl = URL.createObjectURL(file);
+  $("preview").src = selectedImageUrl;
+  $("preview").hidden = false;
+});
+
+$("recognize").addEventListener("click", async () => {
+  const file = $("photo").files[0];
+  if (!file) return;
+
+  if (!window.Tesseract) {
+    $("ocrStatus").textContent =
+      "Не удалось загрузить библиотеку OCR. Проверь интернет и обнови страницу.";
     return;
   }
 
-  status.textContent = "Загружаем распознавание текста...";
-  result.value = "";
-
-  let worker;
+  $("recognize").disabled = true;
+  $("ocrStatus").textContent = "Загрузка распознавания...";
 
   try {
-    worker = await Tesseract.createWorker("rus+eng");
-    status.textContent = "Распознаём фотографию. Подожди...";
-    const output = await worker.recognize(file);
-    result.value = output.data.text || "";
-    status.textContent = result.value.trim()
-      ? "Распознавание завершено. Проверь цифры."
-      : "Текст не распознан. Попробуй другое фото.";
+    const result = await Tesseract.recognize(file, "rus+eng", {
+      logger: message => {
+        if (message.status) {
+          const percent = message.progress == null
+            ? ""
+            : " " + Math.round(message.progress * 100) + "%";
+          $("ocrStatus").textContent = message.status + percent;
+        }
+      }
+    });
+
+    $("ocrText").value = result.data.text || "";
+    $("ocrStatus").textContent =
+      "Распознавание завершено. Проверь цифры: OCR может ошибаться.";
   } catch (error) {
-    status.textContent = "Ошибка: " + error.message;
+    console.error(error);
+    $("ocrStatus").textContent =
+      "Ошибка распознавания. Проверь соединение и попробуй ещё раз.";
   } finally {
-    if (worker) await worker.terminate();
+    $("recognize").disabled = false;
+  }
+});
+
+$("date").addEventListener("change", () => {
+  $("opDate").value = $("date").value;
+});
+
+$("operationForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const date = $("opDate").value;
+  const product = $("product").value;
+  const liters = Number($("liters").value);
+  const hasKg = $("hasKg").checked;
+
+  if (!date) {
+    $("calcStatus").textContent = "Укажи дату операции.";
+    return;
+  }
+
+  if (!Number.isFinite(liters) || liters <= 0) {
+    $("calcStatus").textContent = "Количество литров должно быть больше нуля.";
+    return;
+  }
+
+  if (hasKg) {
+    $("calcStatus").textContent =
+      "Операция не добавлена: килограммы уже указаны в ведомости.";
+    return;
+  }
+
+  operations.push({
+    id: nextId++,
+    date,
+    vehicle: $("vehicle").value.trim(),
+    product,
+    liters
+  });
+
+  $("liters").value = "";
+  $("vehicle").value = "";
+  $("hasKg").checked = false;
+  $("calcStatus").textContent = "Операция добавлена.";
+  renderResults();
+});
+
+function dateLabel(isoDate) {
+  const parts = isoDate.split("-");
+  return parts.length === 3
+    ? `${parts[2]}.${parts[1]}.${parts[0]}`
+    : isoDate;
+}
+
+function renderResults() {
+  if (!operations.length) {
+    $("results").innerHTML = "<p>Операций пока нет.</p>";
+    return;
+  }
+
+  const dates = [...new Set(operations.map(op => op.date))].sort();
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Машина</th>
+          <th>АИ-92, л</th>
+          <th>АИ-92, кг</th>
+          <th>ДТ-3, л</th>
+          <th>ДТ-3, кг</th>
+          <th>Масло, л</th>
+          <th>Масло, кг</th>
+          <th>Действие</th>
+        </tr>
+      </thead><tbody>`;
+
+  let hasMissingDensity = false;
+
+  for (const date of dates) {
+    const daily = operations.filter(op => op.date === date);
+    const totals = {
+      ai: { liters: 0, kg: 0 },
+      dt: { liters: 0, kg: 0 },
+      oil: { liters: 0, kg: 0 }
+    };
+
+    for (const op of daily) {
+      const mass = getMass(op);
+      if (mass === null) {
+        hasMissingDensity = true;
+      } else {
+        totals[op.product].liters += op.liters;
+        totals[op.product].kg += mass;
+      }
+
+      const rowLiters = key =>
+        op.product === key ? numberText(op.liters, 1) : "—";
+
+      const rowKg = key =>
+        op.product !== key || mass === null
+          ? "—"
+          : numberText(mass, 1);
+
+      html += `<tr>
+        <td>${escapeHtml(dateLabel(date))}</td>
+        <td>${escapeHtml(op.vehicle || "—")}</td>
+        <td>${rowLiters("ai")}</td>
+        <td>${rowKg("ai")}</td>
+        <td>${rowLiters("dt")}</td>
+        <td>${rowKg("dt")}</td>
+        <td>${rowLiters("oil")}</td>
+        <td>${rowKg("oil")}</td>
+        <td><button class="remove" data-remove="${op.id}">Удалить</button></td>
+      </tr>`;
+    }
+
+    const totalCell = (key, field) => {
+      const density = getDensity(key);
+      if (density === null) return "Не задана";
+
+      const value = totals[key][field];
+      if (field === "liters") return numberText(value, 1);
+
+      return numberText(
+        roundTo(value, products[key].decimals),
+        products[key].decimals
+      );
+    };
+
+    html += `<tr class="total">
+      <td colspan="2">Итого за дату</td>
+      <td>${totalCell("ai", "liters")}</td>
+      <td>${totalCell("ai", "kg")}</td>
+      <td>${totalCell("dt", "liters")}</td>
+      <td>${totalCell("dt", "kg")}</td>
+      <td>${totalCell("oil", "liters")}</td>
+      <td>${totalCell("oil", "kg")}</td>
+      <td>${escapeHtml(dateLabel(date))}</td>
+    </tr>`;
+  }
+
+  html += "</tbody></table>";
+  $("results").innerHTML = html;
+
+  if (hasMissingDensity) {
+    $("calcStatus").textContent =
+      "Внимание: для некоторых операций не задана плотность. Их масса не рассчитана.";
+  } else {
+    $("calcStatus").textContent = "Расчёт обновлён.";
   }
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+$("results").addEventListener("click", event => {
+  const button = event.target.closest("[data-remove]");
+  if (!button) return;
+
+  const id = Number(button.dataset.remove);
+  operations = operations.filter(op => op.id !== id);
+  renderResults();
+});
+
+$("calculate").addEventListener("click", renderResults);
+
+for (const key of Object.keys(products)) {
+  $(products[key].density).addEventListener("input", renderResults);
+}
+
+$("clear").addEventListener("click", () => {
+  if (!confirm("Удалить все добавленные операции?")) return;
+  operations = [];
+  $("calcStatus").textContent = "Операции очищены.";
+  renderResults();
+});
+
+$("exportCsv").addEventListener("click", () => {
+  if (!operations.length) {
+    $("calcStatus").textContent = "Нет операций для экспорта.";
+    return;
+  }
+
+  const lines = [
+    ["Дата", "Машина", "Наименование", "Литры", "Плотность", "Килограммы"]
+  ];
+
+  for (const op of operations) {
+    const density = getDensity(op.product);
+    const mass = getMass(op);
+
+    lines.push([
+      dateLabel(op.date),
+      op.vehicle,
+      products[op.product].name,
+      op.liters,
+      density ?? "",
+      mass ?? ""
+    ]);
+  }
+
+  const csv = "\uFEFF" + lines.map(row =>
+    row.map(value =>
+      '"' + String(value).replace(/"/g, '""') + '"'
+    ).join(";")
+  ).join("\r\n");
+
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8;"
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "toplivnaya-vedomost.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+setToday();
+renderResults();
 </script>
 </body>
 </html>
