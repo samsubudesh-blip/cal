@@ -1,1 +1,296 @@
 index.html
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Расчёт топливных ведомостей</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5f9;color:#172033;font-family:Arial,sans-serif}
+header{background:#17365d;color:white;padding:22px 16px}
+header h1{font-size:23px;margin:0 0 8px}
+header p{margin:0;color:#d9e6f5;font-size:14px}
+main{max-width:1100px;margin:auto;padding:16px}
+.card{background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 10px #152b4410}
+h2{font-size:19px;margin:0 0 14px}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}
+label{font-size:13px;color:#475569;display:block}
+input,select{width:100%;padding:11px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px;background:white;color:#172033}
+.check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px}
+.check input{width:auto;margin:0}
+button{border:0;border-radius:9px;padding:12px 16px;font-size:15px;font-weight:bold;cursor:pointer}
+.primary{background:#1765c0;color:white}
+.secondary{background:#e6edf5;color:#17365d}
+.danger{background:#fee2e2;color:#991b1b}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.hint{font-size:13px;line-height:1.5;color:#64748b}
+.rowitem{border:1px solid #dbe3ed;border-radius:10px;padding:14px;margin:12px 0}
+.rowhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.rowhead strong{font-size:15px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+th,td{padding:10px 8px;border-bottom:1px solid #e2e8f0;text-align:right}
+th{background:#edf3fa;color:#17365d}
+th:first-child,td:first-child{text-align:left}
+.summary td{background:#eaf2fc;font-weight:bold}
+.notice{padding:12px;background:#fff7df;border-radius:8px;font-size:13px;line-height:1.5}
+.empty{text-align:center;padding:24px;color:#64748b}
+@media(max-width:500px){main{padding:10px}.card{padding:12px}header h1{font-size:21px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Расчёт топливных ведомостей</h1>
+  <p>Учёт выдачи топлива, расчёт массы и итоги по датам</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1. Добавить выдачу</h2>
+    <div class="formgrid">
+      <label>Дата
+        <input id="date" type="date">
+      </label>
+      <label>Номер машины
+        <input id="vehicle" placeholder="Например, 123">
+      </label>
+      <label>Наименование
+        <select id="product">
+          <option value="ai">АИ-92</option>
+          <option value="dt">ДТ-3</option>
+          <option value="oil">Масло</option>
+        </select>
+      </label>
+      <label>Литры
+        <input id="liters" type="number" min="0" step="any" placeholder="0">
+      </label>
+      <label>Плотность
+        <input id="density" type="number" min="0" step="any" placeholder="Например, 0.735">
+      </label>
+    </div>
+    <label class="check">
+      <input id="hasKg" type="checkbox">
+      Килограммы уже указаны в ведомости
+    </label>
+    <p class="hint">Если килограммы уже записаны, эта позиция не попадёт в расчётную таблицу.</p>
+    <div class="actions">
+      <button class="primary" onclick="addEntry()">Добавить выдачу</button>
+      <button class="secondary" onclick="clearForm()">Очистить поля</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Введённые данные</h2>
+    <div id="entries"><p class="empty">Пока нет записей.</p></div>
+    <div class="actions">
+      <button class="primary" onclick="calculate()">Рассчитать итоги</button>
+      <button class="secondary" onclick="exportCSV()">Скачать таблицу CSV</button>
+      <button class="danger" onclick="clearAll()">Удалить все записи</button>
+    </div>
+    <p class="hint">Данные хранятся в памяти открытой страницы. Скачивай CSV для сохранения результата перед закрытием или обновлением страницы.</p>
+  </section>
+
+  <section class="card">
+    <h2>3. Итоговая таблица</h2>
+    <div class="notice">
+      Масса каждой выдачи рассчитывается как литры × плотность с округлением до 0,1 кг. В строках «Итого за дату» литры и килограммы АИ-92 и ДТ-3 округляются до целых, масло сохраняет один знак после запятой.
+    </div>
+    <div id="results"><p class="empty">Добавь записи и нажми «Рассчитать итоги».</p></div>
+  </section>
+</main>
+
+<script>
+const products = {
+  ai: {name:"АИ-92", liters:"aiL", kg:"aiK"},
+  dt: {name:"ДТ-3", liters:"dtL", kg:"dtK"},
+  oil: {name:"Масло", liters:"oilL", kg:"oilK"}
+};
+let entries = [];
+let nextId = 1;
+let lastResults = [];
+
+function round1(n) {
+  return Math.floor(n * 10 + 0.500000001) / 10;
+}
+function fmt(n, digits=1) {
+  return Number(n).toLocaleString("ru-RU", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;",
+    '"':"&quot;", "'":"&#39;"
+  })[c]);
+}
+function clearForm() {
+  document.getElementById("vehicle").value = "";
+  document.getElementById("liters").value = "";
+  document.getElementById("density").value = "";
+  document.getElementById("hasKg").checked = false;
+}
+function addEntry() {
+  const date = document.getElementById("date").value;
+  const vehicle = document.getElementById("vehicle").value.trim();
+  const product = document.getElementById("product").value;
+  const litersText = document.getElementById("liters").value;
+  const densityText = document.getElementById("density").value;
+  const hasKg = document.getElementById("hasKg").checked;
+
+  if (!date) return alert("Укажи дату выдачи.");
+  if (!vehicle) return alert("Укажи номер машины.");
+  if (hasKg) {
+    return alert("Эта позиция уже содержит килограммы. По заданным правилам её не добавляем в расчёт.");
+  }
+  if (litersText === "" || !Number.isFinite(Number(litersText)) || Number(litersText) <= 0) {
+    return alert("Проверь количество литров.");
+  }
+  if (densityText === "" || !Number.isFinite(Number(densityText)) || Number(densityText) <= 0) {
+    return alert("Укажи подтверждённую плотность. Программа не будет угадывать её.");
+  }
+
+  entries.push({
+    id: nextId++,
+    date, vehicle, product,
+    liters: Number(litersText),
+    density: Number(densityText)
+  });
+  renderEntries();
+  clearForm();
+}
+function removeEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  renderEntries();
+}
+function renderEntries() {
+  const root = document.getElementById("entries");
+  if (!entries.length) {
+    root.innerHTML = '<p class="empty">Пока нет записей.</p>';
+    return;
+  }
+  root.innerHTML = entries.map((e, i) => `
+    <div class="rowitem">
+      <div class="rowhead">
+        <strong>Позиция ${i + 1}: ${esc(products[e.product].name)}</strong>
+        <button class="danger" onclick="removeEntry(${e.id})">Удалить</button>
+      </div>
+      <div>${esc(e.date)} · Машина: ${esc(e.vehicle)}</div>
+      <div>Литры: ${fmt(e.liters)} · Плотность: ${fmt(e.density, 3)}</div>
+      <div>Расчётная масса: <strong>${fmt(round1(e.liters * e.density))} кг</strong></div>
+    </div>`).join("");
+}
+function calculate() {
+  if (!entries.length) return alert("Сначала добавь хотя бы одну выдачу.");
+  const dates = [...new Set(entries.map(e => e.date))].sort();
+  const output = [];
+  for (const date of dates) {
+    const day = entries.filter(e => e.date === date);
+    const sums = {
+      aiL:0, aiK:0, dtL:0, dtK:0, oilL:0, oilK:0
+    };
+    for (const e of day) {
+      const kg = round1(e.liters * e.density);
+      const p = products[e.product];
+      sums[p.liters] += e.liters;
+      sums[p.kg] += kg;
+      output.push({
+        type:"entry", date, vehicle:e.vehicle,
+        product:e.product, liters:e.liters, kg
+      });
+    }
+    output.push({type:"summary", date, sums});
+  }
+  lastResults = output;
+  renderResults();
+}
+function renderResults() {
+  const root = document.getElementById("results");
+  if (!lastResults.length) {
+    root.innerHTML = '<p class="empty">Нет рассчитанных данных.</p>';
+    return;
+  }
+  let html = `<div class="tablewrap"><table>
+    <thead><tr>
+      <th>Дата / запись</th><th>Машина</th>
+      <th>АИ-92, л</th><th>АИ-92, кг</th>
+      <th>ДТ-3, л</th><th>ДТ-3, кг</th>
+      <th>Масло, л</th><th>Масло, кг</th>
+    </tr></thead><tbody>`;
+  for (const r of lastResults) {
+    if (r.type === "entry") {
+      const vals = {aiL:"",aiK:"",dtL:"",dtK:"",oilL:"",oilK:""};
+      const p = products[r.product];
+      vals[p.liters] = fmt(r.liters);
+      vals[p.kg] = fmt(r.kg);
+      html += `<tr>
+        <td>${esc(r.date)}</td><td>${esc(r.vehicle)}</td>
+        <td>${vals.aiL}</td><td>${vals.aiK}</td>
+        <td>${vals.dtL}</td><td>${vals.dtK}</td>
+        <td>${vals.oilL}</td><td>${vals.oilK}</td>
+      </tr>`;
+    } else {
+      const s = r.sums;
+      html += `<tr class="summary">
+        <td>Итого за дату ${esc(r.date)}</td><td>—</td>
+        <td>${fmt(Math.round(s.aiL),0)}</td><td>${fmt(Math.round(s.aiK),0)}</td>
+        <td>${fmt(Math.round(s.dtL),0)}</td><td>${fmt(Math.round(s.dtK),0)}</td>
+        <td>${fmt(s.oilL)}</td><td>${fmt(round1(s.oilK))}</td>
+      </tr>`;
+    }
+  }
+  html += "</tbody></table></div>";
+  root.innerHTML = html;
+}
+function exportCSV() {
+  if (!lastResults.length) calculate();
+  if (!lastResults.length) return;
+  const rows = [[
+    "Дата","Тип строки","Номер машины",
+    "АИ-92, литры","АИ-92, кг",
+    "ДТ-3, литры","ДТ-3, кг",
+    "Масло, литры","Масло, кг"
+  ]];
+  for (const r of lastResults) {
+    if (r.type === "entry") {
+      const v = ["","","","","","",""];
+      const p = products[r.product];
+      const map = {aiL:0, aiK:1, dtL:2, dtK:3, oilL:4, oilK:5};
+      v[map[p.liters]] = r.liters;
+      v[map[p.kg]] = r.kg;
+      rows.push([r.date,"Выдача",r.vehicle,...v]);
+    } else {
+      const s = r.sums;
+      rows.push([
+        r.date,"Итого за дату","",
+        Math.round(s.aiL),Math.round(s.aiK),
+        Math.round(s.dtL),Math.round(s.dtK),
+        round1(s.oilL),round1(s.oilK)
+      ]);
+    }
+  }
+  const csv = "\uFEFF" + rows.map(row =>
+    row.map(v => `"${String(v ?? "").replace(/"/g,'""')}"`).join(";")
+  ).join("\r\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "toplivnaya-vedomost.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function clearAll() {
+  if (!confirm("Удалить все введённые записи?")) return;
+  entries = [];
+  lastResults = [];
+  renderEntries();
+  document.getElementById("results").innerHTML =
+    '<p class="empty">Добавь записи и нажми «Рассчитать итоги».</p>';
+}
+document.getElementById("date").value =
+  new Date().toLocaleDateString("en-CA");
+</script>
+</body>
+</html>
