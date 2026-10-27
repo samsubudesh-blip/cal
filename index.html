@@ -104,6 +104,13 @@ th:first-child,td:first-child{text-align:left}
       <button class="primary" onclick="calculate()">Рассчитать итоги</button>
       <button class="secondary" onclick="exportCSV()">Скачать таблицу CSV</button>
       <button class="danger" onclick="clearAll()">Удалить все записи</button>
+      
+<button class="primary" onclick="recognizePhoto()" style="margin-top:12px">
+  Распознать текст
+</button>
+<p id="ocrStatus" class="hint"></p>
+<textarea id="ocrResult" rows="10" placeholder="Здесь появится распознанный текст" style="width:100%;margin-top:10px;padding:10px;border:1px solid #cbd5e1;border-radius:8px"></textarea>
+
     </div>
     <p class="hint">Данные хранятся в памяти открытой страницы. Скачивай CSV для сохранения результата перед закрытием или обновлением страницы.</p>
   </section>
@@ -155,6 +162,43 @@ function clearPhoto() {
 
   document.getElementById("photoInput").value = "";
   document.getElementById("photoPreview").innerHTML = "";
+}
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+async function recognizePhoto() {
+  const input = document.getElementById("photoInput");
+  const status = document.getElementById("ocrStatus");
+  const result = document.getElementById("ocrResult");
+  const file = input.files[0];
+
+  if (!file) {
+    alert("Сначала выбери фотографию ведомости.");
+    return;
+  }
+
+  if (typeof Tesseract === "undefined") {
+    status.textContent = "Не удалось загрузить OCR. Проверь интернет и обнови страницу.";
+    return;
+  }
+
+  status.textContent = "Распознаём текст. Это может занять некоторое время...";
+  result.value = "";
+
+  let worker;
+
+  try {
+    worker = await Tesseract.createWorker("rus+eng");
+    const output = await worker.recognize(file);
+    result.value = output.data.text || "";
+    status.textContent = result.value.trim()
+      ? "Готово. Проверь цифры: OCR может ошибаться."
+      : "Текст не распознан. Попробуй более чёткую фотографию.";
+  } catch (error) {
+    status.textContent = "Ошибка распознавания. Попробуй ещё раз при стабильном интернете.";
+  } finally {
+    if (worker) await worker.terminate();
+  }
 }
 
 <script>
