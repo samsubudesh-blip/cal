@@ -45,6 +45,24 @@ th:first-child,td:first-child{text-align:left}
   <p>Учёт выдачи топлива, расчёт массы и итоги по датам</p>
 </header>
 <main>
+  
+<section class="card">
+  <h2>Загрузка фотографии ведомости</h2>
+  <p class="hint">Выбери фотографию ведомости из галереи телефона.</p>
+  <input
+    id="photoInput"
+    type="file"
+    accept="image/*"
+    onchange="previewPhoto(event)"
+  >
+  <div id="photoPreview" style="margin-top:12px"></div>
+  <button
+    class="secondary"
+    onclick="clearPhoto()"
+    style="margin-top:12px"
+  >Удалить фотографию</button>
+</section>
+
   <section class="card">
     <h2>1. Добавить выдачу</h2>
     <div class="formgrid">
@@ -98,6 +116,46 @@ th:first-child,td:first-child{text-align:left}
     <div id="results"><p class="empty">Добавь записи и нажми «Рассчитать итоги».</p></div>
   </section>
 </main>
+
+let selectedPhotoUrl = null;
+
+function previewPhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("Выбери файл изображения.");
+    return;
+  }
+
+  if (selectedPhotoUrl) {
+    URL.revokeObjectURL(selectedPhotoUrl);
+  }
+
+  selectedPhotoUrl = URL.createObjectURL(file);
+
+  document.getElementById("photoPreview").innerHTML = "";
+
+  const img = document.createElement("img");
+  img.src = selectedPhotoUrl;
+  img.alt = "Фотография ведомости";
+  img.style.maxWidth = "100%";
+  img.style.maxHeight = "500px";
+  img.style.objectFit = "contain";
+  img.style.borderRadius = "8px";
+
+  document.getElementById("photoPreview").appendChild(img);
+}
+
+function clearPhoto() {
+  if (selectedPhotoUrl) {
+    URL.revokeObjectURL(selectedPhotoUrl);
+    selectedPhotoUrl = null;
+  }
+
+  document.getElementById("photoInput").value = "";
+  document.getElementById("photoPreview").innerHTML = "";
+}
 
 <script>
 const products = {
