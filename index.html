@@ -393,6 +393,43 @@ function clearAll() {
 }
 document.getElementById("date").value =
   new Date().toLocaleDateString("en-CA");
+  
+async function recognizePhoto() {
+  const input = document.getElementById("photoInput");
+  const status = document.getElementById("ocrStatus");
+  const result = document.getElementById("ocrResult");
+  const file = input.files[0];
+
+  if (!file) {
+    status.textContent = "Сначала выбери фотографию ведомости.";
+    return;
+  }
+
+  if (typeof Tesseract === "undefined") {
+    status.textContent = "Ошибка: библиотека распознавания не загружена.";
+    return;
+  }
+
+  status.textContent = "Загружаем распознавание текста...";
+  result.value = "";
+
+  let worker;
+
+  try {
+    worker = await Tesseract.createWorker("rus+eng");
+    status.textContent = "Распознаём фотографию. Подожди...";
+    const output = await worker.recognize(file);
+    result.value = output.data.text || "";
+    status.textContent = result.value.trim()
+      ? "Распознавание завершено. Проверь цифры."
+      : "Текст не распознан. Попробуй другое фото.";
+  } catch (error) {
+    status.textContent = "Ошибка: " + error.message;
+  } finally {
+    if (worker) await worker.terminate();
+  }
+}
+
 </script>
 </body>
 </html>
